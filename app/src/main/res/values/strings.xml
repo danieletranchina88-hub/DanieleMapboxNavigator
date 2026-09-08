@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Daniele Navigator</string>
+    <string name="map_hint_waiting">Ricerca del segnale GPS…</string>
+    <string name="map_hint_ready">Tieni premuto sulla mappa per scegliere la destinazione</string>
+    <string name="route_calculating">Calcolo del percorso migliore…</string>
+    <string name="route_active">Navigazione attiva</string>
+    <string name="route_recalculated">Percorso aggiornato</string>
+    <string name="route_error">Impossibile calcolare il percorso. Controlla la connessione.</string>
+    <string name="route_cancelled">Calcolo del percorso annullato</string>
+    <string name="navigation_stopped">Navigazione terminata</string>
+    <string name="gps_permission_denied">La posizione precisa è necessaria per usare il navigatore.</string>
+    <string name="gps_not_ready">Attendi che il GPS rilevi la tua posizione.</string>
+    <string name="token_missing">Configura MAPBOX_PUBLIC_TOKEN prima di avviare l’app.</string>
+    <string name="stop_navigation">Termina navigazione</string>
+    <string name="route_overview">Mostra percorso completo</string>
+    <string name="recenter_map">Centra sulla posizione</string>
+</resources>
+

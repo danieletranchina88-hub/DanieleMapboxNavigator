@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.DanieleNavigator" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/nav_blue</item>
+        <item name="colorSecondary">@color/nav_blue_dark</item>
+        <item name="colorError">@color/nav_red</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">@color/nav_black</item>
+        <item name="android:navigationBarColor">@color/nav_black</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+</resources>
+
