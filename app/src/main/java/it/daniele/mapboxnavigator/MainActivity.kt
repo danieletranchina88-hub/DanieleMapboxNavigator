@@ -31,6 +31,7 @@ import com.mapbox.maps.Style
 import com.mapbox.maps.extension.style.expressions.generated.Expression.Companion.eq
 import com.mapbox.maps.extension.style.expressions.generated.Expression.Companion.get
 import com.mapbox.maps.extension.style.expressions.generated.Expression.Companion.literal
+import com.mapbox.maps.extension.style.layers.addLayerBelow
 import com.mapbox.maps.extension.style.layers.generated.fillExtrusionLayer
 import com.mapbox.maps.plugin.LocationPuck2D
 import com.mapbox.maps.plugin.animation.camera
@@ -472,7 +473,7 @@ class MainActivity : AppCompatActivity() {
             fillExtrusionBase(get("min_height"))
             fillExtrusionOpacity(0.78)
         }
-        style.addLayer(buildings)
+        style.addLayerBelow(buildings, ROAD_LABEL_LAYER_ID)
     }
 
     private fun initializeSearch() {
