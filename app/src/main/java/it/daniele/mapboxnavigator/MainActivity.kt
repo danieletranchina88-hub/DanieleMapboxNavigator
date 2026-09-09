@@ -472,7 +472,7 @@ class MainActivity : AppCompatActivity() {
             fillExtrusionBase(get("min_height"))
             fillExtrusionOpacity(0.78)
         }
-        style.addLayerBelow(buildings, ROAD_LABEL_LAYER_ID)
+        style.addLayer(buildings)
     }
 
     private fun initializeSearch() {
