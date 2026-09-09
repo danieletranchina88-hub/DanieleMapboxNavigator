@@ -14,8 +14,8 @@ android {
         applicationId = "it.daniele.mapboxnavigator"
         minSdk = 23
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
 
         resValue("string", "mapbox_access_token", mapboxPublicToken)
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -64,6 +64,7 @@ dependencies {
     implementation("com.mapbox.navigationcore:ui-components-ndk27:$mapboxNavigationVersion")
     implementation("com.mapbox.navigationcore:tripdata-ndk27:$mapboxNavigationVersion")
     implementation("com.mapbox.navigationcore:voice-ndk27:$mapboxNavigationVersion")
+    implementation("com.mapbox.search:mapbox-search-android-ui-ndk27:2.30.0")
 
     implementation("androidx.core:core-ktx:1.17.0")
     implementation("androidx.appcompat:appcompat:1.7.1")

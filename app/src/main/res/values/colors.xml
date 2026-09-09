@@ -1,11 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="nav_blue">#1769E0</color>
-    <color name="nav_blue_dark">#0D47A1</color>
-    <color name="nav_red">#D32F2F</color>
-    <color name="nav_surface">#F9FAFC</color>
-    <color name="nav_on_surface">#172033</color>
+    <color name="nav_blue">#1267E5</color>
+    <color name="nav_blue_dark">#0A3E91</color>
+    <color name="nav_cyan">#10B9F3</color>
+    <color name="nav_red">#E53935</color>
+    <color name="nav_surface">#FFFDFD</color>
+    <color name="nav_search_surface">#F7FFFFFF</color>
+    <color name="nav_search_stroke">#1A0A3E91</color>
+    <color name="nav_on_surface">#10213B</color>
+    <color name="nav_on_surface_muted">#64748B</color>
     <color name="nav_white">#FFFFFF</color>
-    <color name="nav_black">#101318</color>
+    <color name="nav_black">#071426</color>
 </resources>
-

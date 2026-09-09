@@ -2,13 +2,18 @@ package it.daniele.mapboxnavigator
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.content.res.Resources
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.View
 import android.view.WindowManager
+import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -16,13 +21,23 @@ import androidx.core.app.ActivityCompat
 import com.mapbox.api.directions.v5.models.Bearing
 import com.mapbox.api.directions.v5.models.RouteOptions
 import com.mapbox.bindgen.Expected
+import com.mapbox.common.MapboxOptions
 import com.mapbox.common.location.Location
 import com.mapbox.geojson.Point
 import com.mapbox.maps.CameraOptions
 import com.mapbox.maps.EdgeInsets
 import com.mapbox.maps.ImageHolder
+import com.mapbox.maps.Style
+import com.mapbox.maps.extension.style.expressions.generated.Expression.Companion.eq
+import com.mapbox.maps.extension.style.expressions.generated.Expression.Companion.get
+import com.mapbox.maps.extension.style.expressions.generated.Expression.Companion.literal
+import com.mapbox.maps.extension.style.layers.generated.fillExtrusionLayer
 import com.mapbox.maps.plugin.LocationPuck2D
 import com.mapbox.maps.plugin.animation.camera
+import com.mapbox.maps.plugin.annotation.annotations
+import com.mapbox.maps.plugin.annotation.generated.CircleAnnotationManager
+import com.mapbox.maps.plugin.annotation.generated.CircleAnnotationOptions
+import com.mapbox.maps.plugin.annotation.generated.createCircleAnnotationManager
 import com.mapbox.maps.plugin.attribution.attribution
 import com.mapbox.maps.plugin.compass.compass
 import com.mapbox.maps.plugin.gestures.gestures
@@ -76,12 +91,27 @@ import com.mapbox.navigation.voice.model.SpeechAnnouncement
 import com.mapbox.navigation.voice.model.SpeechError
 import com.mapbox.navigation.voice.model.SpeechValue
 import com.mapbox.navigation.voice.model.SpeechVolume
+import com.mapbox.search.ApiType
+import com.mapbox.search.ResponseInfo
+import com.mapbox.search.SearchEngine
+import com.mapbox.search.SearchEngineSettings
+import com.mapbox.search.offline.OfflineResponseInfo
+import com.mapbox.search.offline.OfflineSearchEngine
+import com.mapbox.search.offline.OfflineSearchEngineSettings
+import com.mapbox.search.offline.OfflineSearchResult
+import com.mapbox.search.record.HistoryRecord
+import com.mapbox.search.result.SearchResult
+import com.mapbox.search.result.SearchSuggestion
+import com.mapbox.search.ui.adapter.engines.SearchEngineUiAdapter
+import com.mapbox.search.ui.view.CommonSearchViewConfiguration
+import com.mapbox.search.ui.view.DistanceUnitType
+import com.mapbox.search.ui.view.SearchResultsView
 import it.daniele.mapboxnavigator.databinding.ActivityMainBinding
 import java.util.Locale
 
 /**
- * Esperienza di navigazione reale: la posizione proviene dal GPS del telefono.
- * Una pressione prolungata sulla mappa calcola e avvia il percorso.
+ * Navigatore turn-by-turn con ricerca Mapbox, edifici 3D e posizione GPS reale.
+ * La destinazione può essere cercata oppure selezionata con una pressione prolungata.
  */
 @OptIn(ExperimentalPreviewMapboxNavigationAPI::class)
 class MainActivity : AppCompatActivity() {
@@ -90,6 +120,8 @@ class MainActivity : AppCompatActivity() {
         private const val BUTTON_ANIMATION_DURATION = 1_500L
         private const val PALERMO_LONGITUDE = 13.3615
         private const val PALERMO_LATITUDE = 38.1157
+        private const val BUILDINGS_LAYER_ID = "daniele-3d-buildings"
+        private const val ROAD_LABEL_LAYER_ID = "road-label-navigation"
     }
 
     private lateinit var binding: ActivityMainBinding
@@ -102,6 +134,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var routeArrowView: MapboxRouteArrowView
     private lateinit var speechApi: MapboxSpeechApi
     private lateinit var voiceInstructionsPlayer: MapboxVoiceInstructionsPlayer
+    private lateinit var searchEngineUiAdapter: SearchEngineUiAdapter
+    private lateinit var destinationAnnotationManager: CircleAnnotationManager
 
     private val routeArrowApi = MapboxRouteArrowApi()
     private val navigationLocationProvider = NavigationLocationProvider()
@@ -109,6 +143,8 @@ class MainActivity : AppCompatActivity() {
     private var navigationAttached = false
     private var tripSessionStarted = false
     private var activeGuidance = false
+    private var ignoreSearchTextChanges = false
+    private var threeDimensionalMode = true
 
     private val pixelDensity = Resources.getSystem().displayMetrics.density
     private val overviewPadding: EdgeInsets by lazy {
@@ -298,11 +334,13 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        MapboxOptions.accessToken = getString(R.string.mapbox_access_token)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         initializeNavigationUi()
         initializeMap()
+        initializeSearch()
         initializeControls()
 
         if (!isPublicTokenConfigured()) {
@@ -373,7 +411,7 @@ class MainActivity : AppCompatActivity() {
         )
         routeLineView = MapboxRouteLineView(
             MapboxRouteLineViewOptions.Builder(this)
-                .routeLineBelowLayerId("road-label-navigation")
+                .routeLineBelowLayerId(ROAD_LABEL_LAYER_ID)
                 .build()
         )
         routeArrowView = MapboxRouteArrowView(RouteArrowOptions.Builder(this).build())
@@ -381,15 +419,17 @@ class MainActivity : AppCompatActivity() {
 
     private fun initializeMap() {
         binding.mapView.scalebar.enabled = false
-        binding.mapView.compass.marginTop = 180f * pixelDensity
+        binding.mapView.compass.marginTop = 165f * pixelDensity
         binding.mapView.logo.marginBottom = 120f * pixelDensity
         binding.mapView.attribution.marginBottom = 120f * pixelDensity
+        destinationAnnotationManager =
+            binding.mapView.annotations.createCircleAnnotationManager(null)
 
         binding.mapView.mapboxMap.setCamera(
             CameraOptions.Builder()
                 .center(Point.fromLngLat(PALERMO_LONGITUDE, PALERMO_LATITUDE))
-                .zoom(12.0)
-                .pitch(45.0)
+                .zoom(15.2)
+                .pitch(55.0)
                 .build()
         )
 
@@ -401,8 +441,10 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.mapView.mapboxMap.loadStyle(navigationStyle) { style ->
+            addThreeDimensionalBuildings(style)
             routeLineView.initializeLayers(style)
             binding.mapView.gestures.addOnMapLongClickListener { destination ->
+                showDestinationMarker(destination)
                 requestRoute(destination)
                 true
             }
@@ -420,6 +462,137 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun addThreeDimensionalBuildings(style: Style) {
+        val buildings = fillExtrusionLayer(BUILDINGS_LAYER_ID, "composite") {
+            sourceLayer("building")
+            filter(eq(get("extrude"), literal("true")))
+            minZoom(14.0)
+            fillExtrusionColor(Color.parseColor("#B8C7D9"))
+            fillExtrusionHeight(get("height"))
+            fillExtrusionBase(get("min_height"))
+            fillExtrusionOpacity(0.78)
+        }
+        style.addLayerBelow(buildings, ROAD_LABEL_LAYER_ID)
+    }
+
+    private fun initializeSearch() {
+        binding.searchResultsView.initialize(
+            SearchResultsView.Configuration(
+                CommonSearchViewConfiguration(DistanceUnitType.METRIC)
+            )
+        )
+
+        val searchEngine = SearchEngine.createSearchEngineWithBuiltInDataProviders(
+            apiType = ApiType.SEARCH_BOX,
+            settings = SearchEngineSettings()
+        )
+        val offlineSearchEngine = OfflineSearchEngine.create(
+            OfflineSearchEngineSettings()
+        )
+        searchEngineUiAdapter = SearchEngineUiAdapter(
+            view = binding.searchResultsView,
+            searchEngine = searchEngine,
+            offlineSearchEngine = offlineSearchEngine
+        )
+
+        searchEngineUiAdapter.addSearchListener(object : SearchEngineUiAdapter.SearchListener {
+            override fun onSuggestionsShown(
+                suggestions: List<SearchSuggestion>,
+                responseInfo: ResponseInfo
+            ) = Unit
+
+            override fun onSearchResultsShown(
+                suggestion: SearchSuggestion,
+                results: List<SearchResult>,
+                responseInfo: ResponseInfo
+            ) = Unit
+
+            override fun onOfflineSearchResultsShown(
+                results: List<OfflineSearchResult>,
+                responseInfo: OfflineResponseInfo
+            ) = Unit
+
+            override fun onSuggestionSelected(searchSuggestion: SearchSuggestion): Boolean = false
+
+            override fun onSearchResultSelected(
+                searchResult: SearchResult,
+                responseInfo: ResponseInfo
+            ) {
+                selectDestination(searchResult.name, searchResult.coordinate)
+            }
+
+            override fun onOfflineSearchResultSelected(
+                searchResult: OfflineSearchResult,
+                responseInfo: OfflineResponseInfo
+            ) {
+                selectDestination(searchResult.name, searchResult.coordinate)
+            }
+
+            override fun onError(e: Exception) {
+                binding.searchResultsCard.visibility = View.GONE
+                Toast.makeText(
+                    this@MainActivity,
+                    R.string.search_error,
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+
+            override fun onHistoryItemClick(historyRecord: HistoryRecord) {
+                selectDestination(historyRecord.name, historyRecord.coordinate)
+            }
+
+            override fun onPopulateQueryClick(
+                suggestion: SearchSuggestion,
+                responseInfo: ResponseInfo
+            ) {
+                binding.searchInput.setText(suggestion.name)
+                binding.searchInput.setSelection(binding.searchInput.text?.length ?: 0)
+            }
+
+            override fun onFeedbackItemClick(responseInfo: ResponseInfo) = Unit
+        })
+
+        binding.searchInput.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(
+                value: CharSequence?,
+                start: Int,
+                count: Int,
+                after: Int
+            ) = Unit
+
+            override fun onTextChanged(
+                value: CharSequence?,
+                start: Int,
+                before: Int,
+                count: Int
+            ) = Unit
+
+            override fun afterTextChanged(value: Editable?) {
+                val query = value?.toString().orEmpty().trim()
+                binding.clearSearch.visibility =
+                    if (query.isEmpty()) View.GONE else View.VISIBLE
+
+                if (ignoreSearchTextChanges || activeGuidance) return
+
+                if (query.length >= 2) {
+                    binding.statusHint.visibility = View.GONE
+                    binding.searchResultsCard.visibility = View.VISIBLE
+                    searchEngineUiAdapter.search(query)
+                } else {
+                    binding.searchResultsCard.visibility = View.GONE
+                    binding.statusHint.visibility = View.VISIBLE
+                }
+            }
+        })
+
+        binding.searchInput.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus && binding.searchInput.text?.length.orZero() >= 2) {
+                binding.searchResultsCard.visibility = View.VISIBLE
+                binding.statusHint.visibility = View.GONE
+            }
+        }
+    }
+
     private fun initializeControls() {
         binding.stop.setOnClickListener { stopActiveGuidance() }
         binding.recenter.setOnClickListener {
@@ -434,6 +607,64 @@ class MainActivity : AppCompatActivity() {
             voiceMuted = !voiceMuted
         }
         binding.soundButton.unmute()
+
+        binding.clearSearch.setOnClickListener {
+            ignoreSearchTextChanges = true
+            binding.searchInput.setText("")
+            ignoreSearchTextChanges = false
+            binding.clearSearch.visibility = View.GONE
+            binding.searchResultsCard.visibility = View.GONE
+            destinationAnnotationManager.deleteAll()
+            showStatus(getString(R.string.map_hint_ready), persist = true)
+        }
+
+        binding.mapModeButton.setOnClickListener {
+            threeDimensionalMode = !threeDimensionalMode
+            binding.mapModeButton.text = if (threeDimensionalMode) "3D" else "2D"
+            binding.mapModeButton.contentDescription = getString(
+                if (threeDimensionalMode) R.string.map_mode_3d else R.string.map_mode_2d
+            )
+
+            val currentZoom = binding.mapView.mapboxMap.cameraState.zoom
+            binding.mapView.mapboxMap.setCamera(
+                CameraOptions.Builder()
+                    .pitch(if (threeDimensionalMode) 55.0 else 0.0)
+                    .zoom(if (threeDimensionalMode) maxOf(15.0, currentZoom) else currentZoom)
+                    .build()
+            )
+        }
+    }
+
+    private fun Int?.orZero(): Int = this ?: 0
+
+    private fun selectDestination(name: String, coordinate: Point) {
+        ignoreSearchTextChanges = true
+        binding.searchInput.setText(name)
+        binding.searchInput.setSelection(binding.searchInput.text?.length ?: 0)
+        ignoreSearchTextChanges = false
+        binding.searchInput.clearFocus()
+        binding.searchResultsCard.visibility = View.GONE
+        hideKeyboard()
+        showDestinationMarker(coordinate)
+        showStatus(getString(R.string.destination_selected, name), persist = true)
+        requestRoute(coordinate)
+    }
+
+    private fun showDestinationMarker(destination: Point) {
+        destinationAnnotationManager.deleteAll()
+        destinationAnnotationManager.create(
+            CircleAnnotationOptions()
+                .withPoint(destination)
+                .withCircleRadius(9.0)
+                .withCircleColor("#1267E5")
+                .withCircleStrokeWidth(3.0)
+                .withCircleStrokeColor("#FFFFFF")
+        )
+    }
+
+    private fun hideKeyboard() {
+        val keyboard = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        keyboard.hideSoftInputFromWindow(binding.searchInput.windowToken, 0)
     }
 
     @SuppressLint("MissingPermission")
@@ -518,6 +749,8 @@ class MainActivity : AppCompatActivity() {
         mapboxNavigation.setNavigationRoutes(routes)
         binding.routeLoading.visibility = View.GONE
         binding.statusHint.visibility = View.GONE
+        binding.searchCard.visibility = View.GONE
+        binding.searchResultsCard.visibility = View.GONE
         binding.soundButton.visibility = View.VISIBLE
         binding.routeOverview.visibility = View.VISIBLE
         binding.tripProgressCard.visibility = View.VISIBLE
@@ -531,10 +764,16 @@ class MainActivity : AppCompatActivity() {
         activeGuidance = false
         mapboxNavigation.setNavigationRoutes(emptyList())
         binding.routeLoading.visibility = View.GONE
-        binding.soundButton.visibility = View.INVISIBLE
-        binding.routeOverview.visibility = View.INVISIBLE
-        binding.maneuverView.visibility = View.INVISIBLE
-        binding.tripProgressCard.visibility = View.INVISIBLE
+        binding.searchCard.visibility = View.VISIBLE
+        binding.soundButton.visibility = View.GONE
+        binding.routeOverview.visibility = View.GONE
+        binding.maneuverView.visibility = View.GONE
+        binding.tripProgressCard.visibility = View.GONE
+        destinationAnnotationManager.deleteAll()
+        ignoreSearchTextChanges = true
+        binding.searchInput.setText("")
+        ignoreSearchTextChanges = false
+        binding.clearSearch.visibility = View.GONE
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         showStatus(getString(R.string.navigation_stopped))
         navigationCamera.requestNavigationCameraToFollowing()
@@ -600,6 +839,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         binding.statusHint.removeCallbacks(hideStatusRunnable)
+        destinationAnnotationManager.deleteAll()
         maneuverApi.cancel()
         routeLineApi.cancel()
         routeLineView.cancel()

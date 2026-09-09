@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">Daniele Navigator</string>
     <string name="map_hint_waiting">Ricerca del segnale GPS…</string>
-    <string name="map_hint_ready">Tieni premuto sulla mappa per scegliere la destinazione</string>
+    <string name="map_hint_ready">Cerca una destinazione o tieni premuto sulla mappa</string>
     <string name="route_calculating">Calcolo del percorso migliore…</string>
     <string name="route_active">Navigazione attiva</string>
     <string name="route_recalculated">Percorso aggiornato</string>
@@ -15,5 +15,10 @@
     <string name="stop_navigation">Termina navigazione</string>
     <string name="route_overview">Mostra percorso completo</string>
     <string name="recenter_map">Centra sulla posizione</string>
+    <string name="search_destination">Dove vuoi andare?</string>
+    <string name="clear_search">Cancella ricerca</string>
+    <string name="search_error">Ricerca non disponibile. Controlla la connessione.</string>
+    <string name="map_mode_3d">Modalità mappa 3D</string>
+    <string name="map_mode_2d">Modalità mappa 2D</string>
+    <string name="destination_selected">Destinazione: %1$s</string>
 </resources>
-

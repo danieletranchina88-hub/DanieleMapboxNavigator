@@ -2,10 +2,15 @@
 
 Navigatore Android personale basato su Mapbox Navigation SDK. Usa la posizione reale del telefono e offre un'esperienza turn-by-turn completa in italiano.
 
-## Funzioni incluse (v0.1.0)
+## Funzioni incluse (v0.2.0)
 
 - GPS reale con map matching sulla strada.
+- Barra di ricerca Mapbox con suggerimenti per indirizzi, luoghi e punti di interesse.
+- Selezione diretta del risultato e calcolo immediato del percorso.
 - Selezione della destinazione con pressione prolungata sulla mappa.
+- Edifici 3D, visuale inclinata e pulsante rapido per passare tra mappa 2D e 3D.
+- Indicatore grafico della destinazione sulla mappa.
+- Interfaccia personalizzata con barra flottante, pannello risultati e comandi compatti.
 - Percorso automobilistico con traffico e ricalcolo automatico fuori rotta.
 - Linea del percorso aggiornata durante la guida e freccia della prossima manovra.
 - Istruzioni grafiche e vocali in italiano.
@@ -23,7 +28,7 @@ Navigatore Android personale basato su Mapbox Navigation SDK. Usa la posizione r
 - Un token Mapbox pubblico (`pk...`).
 - Un token Mapbox segreto (`sk...`) con ambito **Downloads:Read**.
 
-La configurazione usa Mapbox Navigation SDK `3.30.0`, Android Gradle Plugin `9.4.0`, Gradle `9.6.0`, `compileSdk 37` e `targetSdk 36`.
+La configurazione usa Mapbox Navigation SDK `3.30.0`, Mapbox Search SDK `2.30.0`, Android Gradle Plugin `9.4.0`, Gradle `9.6.0`, `compileSdk 37` e `targetSdk 36`.
 
 ## Configurazione locale
 
@@ -53,9 +58,9 @@ Apri quindi **Actions → Build Android APK → Run workflow**. A build terminat
 
 1. Concedi posizione precisa e notifiche.
 2. Attendi il messaggio che conferma il GPS pronto.
-3. Tieni premuto sulla destinazione nella mappa.
+3. Cerca un indirizzo o un luogo e selezionalo dai suggerimenti. In alternativa, tieni premuto sulla mappa.
 4. Attendi il calcolo del percorso e inizia a guidare.
-5. Usa il pulsante rosso in basso per terminare la navigazione.
+5. Usa il pulsante `2D/3D` per cambiare prospettiva e il pulsante rosso per terminare la navigazione.
 
 > Sicurezza: non interagire con il telefono durante la guida. Imposta la destinazione prima di partire e rispetta sempre la segnaletica stradale.
 
@@ -65,13 +70,12 @@ La posizione e le richieste di percorso vengono elaborate dai servizi Mapbox nec
 
 Mapbox applica le condizioni e le soglie del piano associato all'account. Verifica sempre la [pagina prezzi ufficiale Mapbox](https://www.mapbox.com/pricing/) prima di un uso esteso.
 
-## Roadmap v0.2
+## Roadmap
 
-- Ricerca di indirizzi e punti di interesse con Mapbox Search.
 - Preferiti Casa e Lavoro.
 - Percorsi alternativi.
 - Limiti di velocità e avvisi.
-- Mapbox Standard 3D e punti di riferimento.
+- Punti di riferimento 3D avanzati.
 - Android Auto.
 - Cache predittiva e mappe offline.
 - Interfaccia personalizzata in stile infotainment automobilistico.
