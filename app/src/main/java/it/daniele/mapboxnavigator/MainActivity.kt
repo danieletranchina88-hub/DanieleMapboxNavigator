@@ -32,6 +32,8 @@ import com.mapbox.maps.CameraOptions
 import com.mapbox.maps.EdgeInsets
 import com.mapbox.maps.ImageHolder
 import com.mapbox.maps.Style
+import com.mapbox.maps.extension.style.sources.generated.rasterDemSource
+import com.mapbox.maps.extension.style.terrain.generated.terrain
 import com.mapbox.maps.plugin.LocationPuck2D
 import com.mapbox.maps.plugin.animation.camera
 import com.mapbox.maps.plugin.annotation.annotations
@@ -122,6 +124,9 @@ class MainActivity : AppCompatActivity() {
         private const val PALERMO_LONGITUDE = 13.3615
         private const val PALERMO_LATITUDE = 38.1157
         private const val STANDARD_STYLE_IMPORT_ID = "basemap"
+        private const val TERRAIN_SOURCE_ID = "daniele-terrain-dem"
+        private const val TERRAIN_TILESET_URL = "mapbox://mapbox.mapbox-terrain-dem-v1"
+        private const val TERRAIN_EXAGGERATION = 1.3
         private const val LIGHT_PRESET_DAWN = "dawn"
         private const val LIGHT_PRESET_DAY = "day"
         private const val LIGHT_PRESET_DUSK = "dusk"
@@ -479,6 +484,7 @@ class MainActivity : AppCompatActivity() {
 
         binding.mapView.mapboxMap.loadStyle(Style.STANDARD) { style ->
             applyStandardStyleConfiguration(style)
+            addRealisticTerrain(style)
             routeLineView.initializeLayers(style)
             binding.mapView.gestures.addOnMapLongClickListener { destination ->
                 showDestinationMarker(destination)
@@ -523,6 +529,27 @@ class MainActivity : AppCompatActivity() {
             STANDARD_STYLE_IMPORT_ID,
             "showPointOfInterestLabels",
             Value.valueOf(true)
+        )
+        style.setStyleImportConfigProperty(
+            STANDARD_STYLE_IMPORT_ID,
+            "showLandmarkIcons",
+            Value.valueOf(true)
+        )
+    }
+
+    // Rilievo 3D reale (Mapbox Terrain-DEM): stesse tile della mappa normale,
+    // niente costi né prodotti aggiuntivi rispetto al piano gratuito.
+    private fun addRealisticTerrain(style: Style) {
+        style.addSource(
+            rasterDemSource(TERRAIN_SOURCE_ID) {
+                url(TERRAIN_TILESET_URL)
+                tileSize(514)
+            }
+        )
+        style.setStyleTerrain(
+            terrain(TERRAIN_SOURCE_ID) {
+                exaggeration(TERRAIN_EXAGGERATION)
+            }
         )
     }
 

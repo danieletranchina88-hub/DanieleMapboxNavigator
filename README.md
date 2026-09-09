@@ -11,6 +11,8 @@ Navigatore Android personale basato su Mapbox Navigation SDK. Usa la posizione r
 - Stile Mapbox Standard: la stessa estetica e precisione cartografica di Mapbox, con
   edifici 3D fotorealistici (ombre e luce in tempo reale), landmark 3D, attraversamenti
   pedonali e resa stradale nativi, senza livelli personalizzati "fatti a mano".
+- Rilievo del terreno in 3D (Mapbox Terrain-DEM) per colline e dislivelli reali, e
+  percorso colorato in base al traffico reale (verde/giallo/rosso) durante la guida.
 - Visuale inclinata e pulsante rapido per passare tra mappa 2D (piatta) e 3D (edifici in
   rilievo con illuminazione realistica).
 - Indicatore grafico della destinazione sulla mappa.
