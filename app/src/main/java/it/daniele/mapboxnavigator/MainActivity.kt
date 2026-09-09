@@ -32,10 +32,9 @@ import com.mapbox.maps.CameraOptions
 import com.mapbox.maps.EdgeInsets
 import com.mapbox.maps.ImageHolder
 import com.mapbox.maps.Style
-import com.mapbox.maps.extension.style.sources.addSource
 import com.mapbox.maps.extension.style.sources.generated.rasterDemSource
+import com.mapbox.maps.extension.style.style
 import com.mapbox.maps.extension.style.terrain.generated.terrain
-import com.mapbox.maps.extension.style.terrain.setTerrain
 import com.mapbox.maps.plugin.LocationPuck2D
 import com.mapbox.maps.plugin.animation.camera
 import com.mapbox.maps.plugin.annotation.annotations
@@ -484,9 +483,18 @@ class MainActivity : AppCompatActivity() {
                 .build()
         )
 
-        binding.mapView.mapboxMap.loadStyle(Style.STANDARD) { style ->
+        binding.mapView.mapboxMap.loadStyle(
+            style(Style.STANDARD) {
+                +rasterDemSource(TERRAIN_SOURCE_ID) {
+                    url(TERRAIN_TILESET_URL)
+                    tileSize(514)
+                }
+                +terrain(TERRAIN_SOURCE_ID) {
+                    exaggeration(TERRAIN_EXAGGERATION)
+                }
+            }
+        ) { style ->
             applyStandardStyleConfiguration(style)
-            addRealisticTerrain(style)
             routeLineView.initializeLayers(style)
             binding.mapView.gestures.addOnMapLongClickListener { destination ->
                 showDestinationMarker(destination)
@@ -536,22 +544,6 @@ class MainActivity : AppCompatActivity() {
             STANDARD_STYLE_IMPORT_ID,
             "showLandmarkIcons",
             Value.valueOf(true)
-        )
-    }
-
-    // Rilievo 3D reale (Mapbox Terrain-DEM): stesse tile della mappa normale,
-    // niente costi né prodotti aggiuntivi rispetto al piano gratuito.
-    private fun addRealisticTerrain(style: Style) {
-        style.addSource(
-            rasterDemSource(TERRAIN_SOURCE_ID) {
-                url(TERRAIN_TILESET_URL)
-                tileSize(514)
-            }
-        )
-        style.setTerrain(
-            terrain(TERRAIN_SOURCE_ID) {
-                exaggeration(TERRAIN_EXAGGERATION)
-            }
         )
     }
 
