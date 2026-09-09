@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.content.res.Resources
-import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.text.Editable
@@ -21,6 +20,7 @@ import androidx.core.app.ActivityCompat
 import com.mapbox.api.directions.v5.models.Bearing
 import com.mapbox.api.directions.v5.models.RouteOptions
 import com.mapbox.bindgen.Expected
+import com.mapbox.bindgen.Value
 import com.mapbox.common.MapboxOptions
 import com.mapbox.common.location.Location
 import com.mapbox.geojson.Point
@@ -28,11 +28,6 @@ import com.mapbox.maps.CameraOptions
 import com.mapbox.maps.EdgeInsets
 import com.mapbox.maps.ImageHolder
 import com.mapbox.maps.Style
-import com.mapbox.maps.extension.style.expressions.generated.Expression.Companion.eq
-import com.mapbox.maps.extension.style.expressions.generated.Expression.Companion.get
-import com.mapbox.maps.extension.style.expressions.generated.Expression.Companion.literal
-import com.mapbox.maps.extension.style.layers.addLayerBelow
-import com.mapbox.maps.extension.style.layers.generated.fillExtrusionLayer
 import com.mapbox.maps.plugin.LocationPuck2D
 import com.mapbox.maps.plugin.animation.camera
 import com.mapbox.maps.plugin.annotation.annotations
@@ -72,7 +67,6 @@ import com.mapbox.navigation.tripdata.progress.model.PercentDistanceTraveledForm
 import com.mapbox.navigation.tripdata.progress.model.TimeRemainingFormatter
 import com.mapbox.navigation.tripdata.progress.model.TripProgressUpdateFormatter
 import com.mapbox.navigation.ui.base.util.MapboxNavigationConsumer
-import com.mapbox.navigation.ui.maps.NavigationStyles
 import com.mapbox.navigation.ui.maps.camera.NavigationCamera
 import com.mapbox.navigation.ui.maps.camera.data.MapboxNavigationViewportDataSource
 import com.mapbox.navigation.ui.maps.camera.lifecycle.NavigationBasicGesturesHandler
@@ -121,8 +115,9 @@ class MainActivity : AppCompatActivity() {
         private const val BUTTON_ANIMATION_DURATION = 1_500L
         private const val PALERMO_LONGITUDE = 13.3615
         private const val PALERMO_LATITUDE = 38.1157
-        private const val BUILDINGS_LAYER_ID = "daniele-3d-buildings"
-        private const val ROAD_LABEL_LAYER_ID = "road-label-navigation"
+        private const val STANDARD_STYLE_IMPORT_ID = "basemap"
+        private const val LIGHT_PRESET_DAY = "day"
+        private const val LIGHT_PRESET_NIGHT = "night"
     }
 
     private lateinit var binding: ActivityMainBinding
@@ -411,9 +406,7 @@ class MainActivity : AppCompatActivity() {
                 .build()
         )
         routeLineView = MapboxRouteLineView(
-            MapboxRouteLineViewOptions.Builder(this)
-                .routeLineBelowLayerId(ROAD_LABEL_LAYER_ID)
-                .build()
+            MapboxRouteLineViewOptions.Builder(this).build()
         )
         routeArrowView = MapboxRouteArrowView(RouteArrowOptions.Builder(this).build())
     }
@@ -435,14 +428,11 @@ class MainActivity : AppCompatActivity() {
         )
 
         val nightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
-        val navigationStyle = if (nightMode == Configuration.UI_MODE_NIGHT_YES) {
-            NavigationStyles.NAVIGATION_NIGHT_STYLE
-        } else {
-            NavigationStyles.NAVIGATION_DAY_STYLE
-        }
+        val lightPreset =
+            if (nightMode == Configuration.UI_MODE_NIGHT_YES) LIGHT_PRESET_NIGHT else LIGHT_PRESET_DAY
 
-        binding.mapView.mapboxMap.loadStyle(navigationStyle) { style ->
-            addThreeDimensionalBuildings(style)
+        binding.mapView.mapboxMap.loadStyle(Style.STANDARD) { style ->
+            applyStandardStyleConfiguration(style, lightPreset)
             routeLineView.initializeLayers(style)
             binding.mapView.gestures.addOnMapLongClickListener { destination ->
                 showDestinationMarker(destination)
@@ -463,17 +453,34 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun addThreeDimensionalBuildings(style: Style) {
-        val buildings = fillExtrusionLayer(BUILDINGS_LAYER_ID, "composite") {
-            sourceLayer("building")
-            filter(eq(get("extrude"), literal("true")))
-            minZoom(14.0)
-            fillExtrusionColor(Color.parseColor("#B8C7D9"))
-            fillExtrusionHeight(get("height"))
-            fillExtrusionBase(get("min_height"))
-            fillExtrusionOpacity(0.78)
-        }
-        style.addLayerBelow(buildings, ROAD_LABEL_LAYER_ID)
+    // Lo stile Standard include già edifici 3D realistici, ombre e attraversamenti
+    // pedonali nativi: qui si configura solo il preset di luce e le etichette.
+    private fun applyStandardStyleConfiguration(style: Style, lightPreset: String) {
+        style.setStyleImportConfigProperty(
+            STANDARD_STYLE_IMPORT_ID,
+            "lightPreset",
+            Value.valueOf(lightPreset)
+        )
+        style.setStyleImportConfigProperty(
+            STANDARD_STYLE_IMPORT_ID,
+            "show3dObjects",
+            Value.valueOf(true)
+        )
+        style.setStyleImportConfigProperty(
+            STANDARD_STYLE_IMPORT_ID,
+            "showPlaceLabels",
+            Value.valueOf(true)
+        )
+        style.setStyleImportConfigProperty(
+            STANDARD_STYLE_IMPORT_ID,
+            "showRoadLabels",
+            Value.valueOf(true)
+        )
+        style.setStyleImportConfigProperty(
+            STANDARD_STYLE_IMPORT_ID,
+            "showPointOfInterestLabels",
+            Value.valueOf(true)
+        )
     }
 
     private fun initializeSearch() {
@@ -632,6 +639,11 @@ class MainActivity : AppCompatActivity() {
                     .pitch(if (threeDimensionalMode) 55.0 else 0.0)
                     .zoom(if (threeDimensionalMode) maxOf(15.0, currentZoom) else currentZoom)
                     .build()
+            )
+            binding.mapView.mapboxMap.style?.setStyleImportConfigProperty(
+                STANDARD_STYLE_IMPORT_ID,
+                "show3dObjects",
+                Value.valueOf(threeDimensionalMode)
             )
         }
     }

@@ -8,7 +8,11 @@ Navigatore Android personale basato su Mapbox Navigation SDK. Usa la posizione r
 - Barra di ricerca Mapbox con suggerimenti per indirizzi, luoghi e punti di interesse.
 - Selezione diretta del risultato e calcolo immediato del percorso.
 - Selezione della destinazione con pressione prolungata sulla mappa.
-- Edifici 3D, visuale inclinata e pulsante rapido per passare tra mappa 2D e 3D.
+- Stile Mapbox Standard: la stessa estetica e precisione cartografica di Mapbox, con
+  edifici 3D fotorealistici (ombre e luce in tempo reale), landmark 3D, attraversamenti
+  pedonali e resa stradale nativi, senza livelli personalizzati "fatti a mano".
+- Visuale inclinata e pulsante rapido per passare tra mappa 2D (piatta) e 3D (edifici in
+  rilievo con illuminazione realistica).
 - Indicatore grafico della destinazione sulla mappa.
 - Interfaccia personalizzata con barra flottante, pannello risultati e comandi compatti.
 - Percorso automobilistico con traffico e ricalcolo automatico fuori rotta.
@@ -16,7 +20,7 @@ Navigatore Android personale basato su Mapbox Navigation SDK. Usa la posizione r
 - Istruzioni grafiche e vocali in italiano.
 - Tempo di arrivo, tempo residuo e distanza residua.
 - Comandi per ricentrare la mappa, vedere l'intero percorso, silenziare la voce e terminare la navigazione.
-- Stile Mapbox Navigation automatico chiaro/scuro in base al tema del telefono.
+- Preset di luce Mapbox Standard (giorno/notte) automatico in base al tema del telefono.
 - Supporto Android 6.0+ (`minSdk 23`) e dispositivi Android con pagine di memoria da 16 KB.
 - Workflow GitHub Actions manuale per produrre un APK di debug scaricabile.
 
