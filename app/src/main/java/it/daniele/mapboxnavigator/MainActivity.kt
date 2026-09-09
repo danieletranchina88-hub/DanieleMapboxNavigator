@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.content.res.Resources
 import android.os.Build
@@ -15,12 +16,15 @@ import android.text.TextWatcher
 import android.view.View
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
+import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.google.android.material.button.MaterialButton
 import com.mapbox.android.gestures.MoveGestureDetector
+import com.mapbox.api.directions.v5.DirectionsCriteria
 import com.mapbox.api.directions.v5.models.Bearing
 import com.mapbox.api.directions.v5.models.RouteOptions
 import com.mapbox.bindgen.Expected
@@ -74,6 +78,7 @@ import com.mapbox.navigation.tripdata.progress.model.EstimatedTimeToArrivalForma
 import com.mapbox.navigation.tripdata.progress.model.PercentDistanceTraveledFormatter
 import com.mapbox.navigation.tripdata.progress.model.TimeRemainingFormatter
 import com.mapbox.navigation.tripdata.progress.model.TripProgressUpdateFormatter
+import com.mapbox.navigation.tripdata.speedlimit.api.MapboxSpeedInfoApi
 import com.mapbox.navigation.ui.base.util.MapboxNavigationConsumer
 import com.mapbox.navigation.ui.maps.camera.NavigationCamera
 import com.mapbox.navigation.ui.maps.camera.data.MapboxNavigationViewportDataSource
@@ -111,7 +116,9 @@ import com.mapbox.search.ui.view.DistanceUnitType
 import com.mapbox.search.ui.view.SearchResultsView
 import it.daniele.mapboxnavigator.databinding.ActivityMainBinding
 import it.daniele.mapboxnavigator.databinding.SheetMapCustomizationBinding
+import it.daniele.mapboxnavigator.databinding.SheetRouteChoiceBinding
 import java.util.Locale
+import kotlin.math.roundToInt
 
 /**
  * Navigatore turn-by-turn con ricerca Mapbox, edifici 3D e posizione GPS reale.
@@ -153,8 +160,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var voiceInstructionsPlayer: MapboxVoiceInstructionsPlayer
     private lateinit var searchEngineUiAdapter: SearchEngineUiAdapter
     private lateinit var destinationAnnotationManager: CircleAnnotationManager
+    private lateinit var distanceFormatterOptions: DistanceFormatterOptions
 
     private val routeArrowApi = MapboxRouteArrowApi()
+    private val speedInfoApi = MapboxSpeedInfoApi()
     private val navigationLocationProvider = NavigationLocationProvider()
     private var firstLocationReceived = false
     private var navigationAttached = false
@@ -242,6 +251,17 @@ class MainActivity : AppCompatActivity() {
             )
             viewportDataSource.onLocationChanged(enhancedLocation)
             viewportDataSource.evaluate()
+
+            val speedInfo = speedInfoApi.updatePostedAndCurrentSpeed(
+                locationMatcherResult,
+                distanceFormatterOptions
+            )
+            if (speedInfo != null) {
+                binding.speedInfoView.visibility = View.VISIBLE
+                binding.speedInfoView.render(speedInfo)
+            } else {
+                binding.speedInfoView.visibility = View.GONE
+            }
 
             if (!firstLocationReceived) {
                 firstLocationReceived = true
@@ -437,7 +457,7 @@ class MainActivity : AppCompatActivity() {
         viewportDataSource.followingPadding =
             if (landscape) landscapeFollowingPadding else followingPadding
 
-        val distanceFormatterOptions = DistanceFormatterOptions.Builder(this).build()
+        distanceFormatterOptions = DistanceFormatterOptions.Builder(this).build()
         maneuverApi = MapboxManeuverApi(MapboxDistanceFormatter(distanceFormatterOptions))
         tripProgressApi = MapboxTripProgressApi(
             TripProgressUpdateFormatter.Builder(this)
@@ -847,6 +867,14 @@ class MainActivity : AppCompatActivity() {
             .applyLanguageAndVoiceUnitOptions(this)
             .language(Locale.ITALIAN.language)
             .coordinatesList(listOf(origin, destination))
+            .alternatives(true)
+            .annotationsList(
+                listOf(
+                    DirectionsCriteria.ANNOTATION_CONGESTION_NUMERIC,
+                    DirectionsCriteria.ANNOTATION_DISTANCE,
+                    DirectionsCriteria.ANNOTATION_MAXSPEED
+                )
+            )
 
         originLocation.bearing?.let { bearing ->
             optionsBuilder.bearingsList(
@@ -885,10 +913,59 @@ class MainActivity : AppCompatActivity() {
                     routes: List<NavigationRoute>,
                     routerOrigin: String
                 ) {
-                    beginActiveGuidance(routes)
+                    if (routes.size > 1) {
+                        binding.routeLoading.visibility = View.GONE
+                        showRouteChoice(routes)
+                    } else {
+                        beginActiveGuidance(routes)
+                    }
                 }
             }
         )
+    }
+
+    private fun showRouteChoice(routes: List<NavigationRoute>) {
+        val sheetBinding = SheetRouteChoiceBinding.inflate(layoutInflater)
+        val dialog = BottomSheetDialog(this)
+        var routeChosen = false
+
+        routes.forEachIndexed { index, route ->
+            val optionButton = MaterialButton(this).apply {
+                text = formatRouteSummary(route, isFastest = index == 0)
+                setTextColor(getColor(R.color.nav_white))
+                backgroundTintList = ColorStateList.valueOf(getColor(R.color.nav_sheet_option_idle))
+                cornerRadius = (16 * pixelDensity).toInt()
+                setAllCaps(false)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { topMargin = (10 * pixelDensity).toInt() }
+                setOnClickListener {
+                    routeChosen = true
+                    dialog.dismiss()
+                    val reordered = if (index == 0) {
+                        routes
+                    } else {
+                        listOf(route) + routes.filterIndexed { i, _ -> i != index }
+                    }
+                    beginActiveGuidance(reordered)
+                }
+            }
+            sheetBinding.routeOptionsContainer.addView(optionButton)
+        }
+
+        dialog.setOnDismissListener {
+            if (!routeChosen) beginActiveGuidance(routes)
+        }
+        dialog.setContentView(sheetBinding.root)
+        dialog.show()
+    }
+
+    private fun formatRouteSummary(route: NavigationRoute, isFastest: Boolean): String {
+        val minutes = (route.directionsRoute.duration() / 60).roundToInt()
+        val km = route.directionsRoute.distance() / 1000
+        val summary = getString(R.string.route_choice_summary, minutes, km)
+        return if (isFastest) "$summary · ${getString(R.string.route_choice_fastest)}" else summary
     }
 
     private fun beginActiveGuidance(routes: List<NavigationRoute>) {

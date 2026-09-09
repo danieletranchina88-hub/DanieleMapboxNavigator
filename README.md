@@ -13,6 +13,9 @@ Navigatore Android personale basato su Mapbox Navigation SDK. Usa la posizione r
   pedonali e resa stradale nativi, senza livelli personalizzati "fatti a mano".
 - Rilievo del terreno in 3D (Mapbox Terrain-DEM) per colline e dislivelli reali, e
   percorso colorato in base al traffico reale (verde/giallo/rosso) durante la guida.
+- Percorsi alternativi: quando disponibili, un pannello permette di scegliere tra
+  più opzioni (tempo e distanza) prima di iniziare la guida.
+- Indicatore di velocità attuale e limite di velocità della strada, quando disponibile.
 - Visuale inclinata e pulsante rapido per passare tra mappa 2D (piatta) e 3D (edifici in
   rilievo con illuminazione realistica).
 - Indicatore grafico della destinazione sulla mappa.

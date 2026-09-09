@@ -32,4 +32,7 @@
     <string name="style_theme_default">Standard</string>
     <string name="style_theme_faded">Sfumato</string>
     <string name="style_theme_monochrome">Monocromatico</string>
+    <string name="route_choice_title">Scegli il percorso</string>
+    <string name="route_choice_summary">%1$d min · %2$.1f km</string>
+    <string name="route_choice_fastest">Più veloce</string>
 </resources>
