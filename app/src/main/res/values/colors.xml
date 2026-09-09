@@ -11,4 +11,9 @@
     <color name="nav_on_surface_muted">#64748B</color>
     <color name="nav_white">#FFFFFF</color>
     <color name="nav_black">#071426</color>
+    <color name="nav_muted_on_dark">#93A1B8</color>
+    <color name="nav_sheet_surface">#101B30</color>
+    <color name="nav_sheet_handle">#40FFFFFF</color>
+    <color name="nav_sheet_outline">#33FFFFFF</color>
+    <color name="nav_sheet_option_idle">#14FFFFFF</color>
 </resources>

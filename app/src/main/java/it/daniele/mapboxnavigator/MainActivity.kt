@@ -8,6 +8,8 @@ import android.content.res.Configuration
 import android.content.res.Resources
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
@@ -17,6 +19,8 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.mapbox.android.gestures.MoveGestureDetector
 import com.mapbox.api.directions.v5.models.Bearing
 import com.mapbox.api.directions.v5.models.RouteOptions
 import com.mapbox.bindgen.Expected
@@ -36,6 +40,7 @@ import com.mapbox.maps.plugin.annotation.generated.CircleAnnotationOptions
 import com.mapbox.maps.plugin.annotation.generated.createCircleAnnotationManager
 import com.mapbox.maps.plugin.attribution.attribution
 import com.mapbox.maps.plugin.compass.compass
+import com.mapbox.maps.plugin.gestures.OnMoveListener
 import com.mapbox.maps.plugin.gestures.gestures
 import com.mapbox.maps.plugin.locationcomponent.location
 import com.mapbox.maps.plugin.logo.logo
@@ -102,6 +107,7 @@ import com.mapbox.search.ui.view.CommonSearchViewConfiguration
 import com.mapbox.search.ui.view.DistanceUnitType
 import com.mapbox.search.ui.view.SearchResultsView
 import it.daniele.mapboxnavigator.databinding.ActivityMainBinding
+import it.daniele.mapboxnavigator.databinding.SheetMapCustomizationBinding
 import java.util.Locale
 
 /**
@@ -116,8 +122,17 @@ class MainActivity : AppCompatActivity() {
         private const val PALERMO_LONGITUDE = 13.3615
         private const val PALERMO_LATITUDE = 38.1157
         private const val STANDARD_STYLE_IMPORT_ID = "basemap"
+        private const val LIGHT_PRESET_DAWN = "dawn"
         private const val LIGHT_PRESET_DAY = "day"
+        private const val LIGHT_PRESET_DUSK = "dusk"
         private const val LIGHT_PRESET_NIGHT = "night"
+        private const val STYLE_THEME_DEFAULT = "default"
+        private const val STYLE_THEME_FADED = "faded"
+        private const val STYLE_THEME_MONOCHROME = "monochrome"
+        private const val AUTO_FOLLOW_DELAY_MS = 6_000L
+        private const val APPEARANCE_PREFS_NAME = "map_appearance"
+        private const val KEY_LIGHT_PRESET = "light_preset"
+        private const val KEY_STYLE_THEME = "style_theme"
     }
 
     private lateinit var binding: ActivityMainBinding
@@ -141,6 +156,13 @@ class MainActivity : AppCompatActivity() {
     private var activeGuidance = false
     private var ignoreSearchTextChanges = false
     private var threeDimensionalMode = true
+    private var currentLightPreset = LIGHT_PRESET_DAY
+    private var currentStyleTheme = STYLE_THEME_DEFAULT
+
+    private val autoFollowHandler = Handler(Looper.getMainLooper())
+    private val returnToFollowingRunnable = Runnable {
+        navigationCamera.requestNavigationCameraToFollowing()
+    }
 
     private val pixelDensity = Resources.getSystem().displayMetrics.density
     private val overviewPadding: EdgeInsets by lazy {
@@ -334,6 +356,7 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        loadSavedMapAppearance()
         initializeNavigationUi()
         initializeMap()
         initializeSearch()
@@ -354,6 +377,15 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
+    private fun loadSavedMapAppearance() {
+        val nightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+        val defaultPreset =
+            if (nightMode == Configuration.UI_MODE_NIGHT_YES) LIGHT_PRESET_NIGHT else LIGHT_PRESET_DAY
+        val prefs = getSharedPreferences(APPEARANCE_PREFS_NAME, Context.MODE_PRIVATE)
+        currentLightPreset = prefs.getString(KEY_LIGHT_PRESET, defaultPreset) ?: defaultPreset
+        currentStyleTheme = prefs.getString(KEY_STYLE_THEME, STYLE_THEME_DEFAULT) ?: STYLE_THEME_DEFAULT
+    }
+
     private fun initializeNavigationUi() {
         viewportDataSource = MapboxNavigationViewportDataSource(binding.mapView.mapboxMap)
         navigationCamera = NavigationCamera(
@@ -368,11 +400,29 @@ class MainActivity : AppCompatActivity() {
         navigationCamera.registerNavigationCameraStateChangeObserver { state ->
             binding.recenter.visibility = when (state) {
                 NavigationCameraState.FOLLOWING,
-                NavigationCameraState.TRANSITION_TO_FOLLOWING -> View.INVISIBLE
+                NavigationCameraState.TRANSITION_TO_FOLLOWING -> {
+                    autoFollowHandler.removeCallbacks(returnToFollowingRunnable)
+                    View.INVISIBLE
+                }
 
                 else -> View.VISIBLE
             }
         }
+
+        // Se l'utente sposta la mappa a mano, dopo una breve pausa la camera
+        // torna da sola a seguire il puntatore, come nei navigatori Mapbox.
+        binding.mapView.gestures.addOnMoveListener(object : OnMoveListener {
+            override fun onMoveBegin(detector: MoveGestureDetector) {
+                autoFollowHandler.removeCallbacks(returnToFollowingRunnable)
+            }
+
+            override fun onMove(detector: MoveGestureDetector): Boolean = false
+
+            override fun onMoveEnd(detector: MoveGestureDetector) {
+                autoFollowHandler.removeCallbacks(returnToFollowingRunnable)
+                autoFollowHandler.postDelayed(returnToFollowingRunnable, AUTO_FOLLOW_DELAY_MS)
+            }
+        })
 
         val landscape =
             resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -427,12 +477,8 @@ class MainActivity : AppCompatActivity() {
                 .build()
         )
 
-        val nightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
-        val lightPreset =
-            if (nightMode == Configuration.UI_MODE_NIGHT_YES) LIGHT_PRESET_NIGHT else LIGHT_PRESET_DAY
-
         binding.mapView.mapboxMap.loadStyle(Style.STANDARD) { style ->
-            applyStandardStyleConfiguration(style, lightPreset)
+            applyStandardStyleConfiguration(style)
             routeLineView.initializeLayers(style)
             binding.mapView.gestures.addOnMapLongClickListener { destination ->
                 showDestinationMarker(destination)
@@ -454,13 +500,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     // Lo stile Standard include già edifici 3D realistici, ombre e attraversamenti
-    // pedonali nativi: qui si configura solo il preset di luce e le etichette.
-    private fun applyStandardStyleConfiguration(style: Style, lightPreset: String) {
-        style.setStyleImportConfigProperty(
-            STANDARD_STYLE_IMPORT_ID,
-            "lightPreset",
-            Value.valueOf(lightPreset)
-        )
+    // pedonali nativi: qui si applicano solo le preferenze di aspetto dell'utente.
+    private fun applyStandardStyleConfiguration(style: Style) {
+        applyLightPreset(style, currentLightPreset)
+        applyStyleTheme(style, currentStyleTheme)
         style.setStyleImportConfigProperty(
             STANDARD_STYLE_IMPORT_ID,
             "show3dObjects",
@@ -481,6 +524,76 @@ class MainActivity : AppCompatActivity() {
             "showPointOfInterestLabels",
             Value.valueOf(true)
         )
+    }
+
+    private fun applyLightPreset(style: Style, preset: String) {
+        style.setStyleImportConfigProperty(
+            STANDARD_STYLE_IMPORT_ID,
+            "lightPreset",
+            Value.valueOf(preset)
+        )
+    }
+
+    private fun applyStyleTheme(style: Style, theme: String) {
+        style.setStyleImportConfigProperty(
+            STANDARD_STYLE_IMPORT_ID,
+            "theme",
+            Value.valueOf(theme)
+        )
+    }
+
+    private fun persistMapAppearance() {
+        getSharedPreferences(APPEARANCE_PREFS_NAME, Context.MODE_PRIVATE).edit()
+            .putString(KEY_LIGHT_PRESET, currentLightPreset)
+            .putString(KEY_STYLE_THEME, currentStyleTheme)
+            .apply()
+    }
+
+    private fun showMapCustomizationSheet() {
+        val sheetBinding = SheetMapCustomizationBinding.inflate(layoutInflater)
+        val dialog = BottomSheetDialog(this)
+        dialog.setContentView(sheetBinding.root)
+
+        sheetBinding.lightPresetToggle.check(
+            when (currentLightPreset) {
+                LIGHT_PRESET_DAWN -> sheetBinding.presetDawn.id
+                LIGHT_PRESET_DUSK -> sheetBinding.presetDusk.id
+                LIGHT_PRESET_NIGHT -> sheetBinding.presetNight.id
+                else -> sheetBinding.presetDay.id
+            }
+        )
+        sheetBinding.themeToggle.check(
+            when (currentStyleTheme) {
+                STYLE_THEME_FADED -> sheetBinding.themeFaded.id
+                STYLE_THEME_MONOCHROME -> sheetBinding.themeMonochrome.id
+                else -> sheetBinding.themeStandard.id
+            }
+        )
+
+        sheetBinding.lightPresetToggle.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (!isChecked) return@addOnButtonCheckedListener
+            currentLightPreset = when (checkedId) {
+                sheetBinding.presetDawn.id -> LIGHT_PRESET_DAWN
+                sheetBinding.presetDusk.id -> LIGHT_PRESET_DUSK
+                sheetBinding.presetNight.id -> LIGHT_PRESET_NIGHT
+                else -> LIGHT_PRESET_DAY
+            }
+            binding.mapView.mapboxMap.style?.let { applyLightPreset(it, currentLightPreset) }
+            persistMapAppearance()
+        }
+
+        sheetBinding.themeToggle.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (!isChecked) return@addOnButtonCheckedListener
+            currentStyleTheme = when (checkedId) {
+                sheetBinding.themeFaded.id -> STYLE_THEME_FADED
+                sheetBinding.themeMonochrome.id -> STYLE_THEME_MONOCHROME
+                else -> STYLE_THEME_DEFAULT
+            }
+            binding.mapView.mapboxMap.style?.let { applyStyleTheme(it, currentStyleTheme) }
+            persistMapAppearance()
+        }
+
+        dialog.show()
     }
 
     private fun initializeSearch() {
@@ -646,6 +759,8 @@ class MainActivity : AppCompatActivity() {
                 Value.valueOf(threeDimensionalMode)
             )
         }
+
+        binding.customizeButton.setOnClickListener { showMapCustomizationSheet() }
     }
 
     private fun Int?.orZero(): Int = this ?: 0
@@ -852,6 +967,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         binding.statusHint.removeCallbacks(hideStatusRunnable)
+        autoFollowHandler.removeCallbacks(returnToFollowingRunnable)
         destinationAnnotationManager.deleteAll()
         maneuverApi.cancel()
         routeLineApi.cancel()

@@ -21,4 +21,15 @@
     <string name="map_mode_3d">Modalità mappa 3D</string>
     <string name="map_mode_2d">Modalità mappa 2D</string>
     <string name="destination_selected">Destinazione: %1$s</string>
+    <string name="customize_map">Personalizza aspetto mappa</string>
+    <string name="customize_title">Aspetto della mappa</string>
+    <string name="customize_light_preset">Preset di luce</string>
+    <string name="customize_theme">Tema colori</string>
+    <string name="light_preset_dawn">Alba</string>
+    <string name="light_preset_day">Giorno</string>
+    <string name="light_preset_dusk">Tramonto</string>
+    <string name="light_preset_night">Notte</string>
+    <string name="style_theme_default">Standard</string>
+    <string name="style_theme_faded">Sfumato</string>
+    <string name="style_theme_monochrome">Monocromatico</string>
 </resources>

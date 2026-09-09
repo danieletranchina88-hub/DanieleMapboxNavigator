@@ -117,6 +117,16 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <!-- Il bordo inferiore di questa barriera segue sempre il contenuto in alto
+         (barra di ricerca, messaggio di stato o banner di manovra), così i
+         pulsanti flottanti a destra non finiscono mai sopra il testo. -->
+    <androidx.constraintlayout.widget.Barrier
+        android:id="@+id/topContentBarrier"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:barrierDirection="bottom"
+        app:constraint_referenced_ids="searchCard,statusHint,maneuverView" />
+
     <TextView
         android:id="@+id/statusHint"
         android:layout_width="wrap_content"
@@ -151,7 +161,7 @@
         android:id="@+id/mapModeButton"
         android:layout_width="52dp"
         android:layout_height="52dp"
-        android:layout_marginTop="96dp"
+        android:layout_marginTop="14dp"
         android:layout_marginEnd="16dp"
         android:contentDescription="@string/map_mode_3d"
         android:insetLeft="0dp"
@@ -168,17 +178,41 @@
         app:cornerRadius="26dp"
         app:elevation="8dp"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toBottomOf="@id/topContentBarrier" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/customizeButton"
+        android:layout_width="52dp"
+        android:layout_height="52dp"
+        android:layout_marginTop="10dp"
+        android:layout_marginEnd="16dp"
+        android:contentDescription="@string/customize_map"
+        android:insetLeft="0dp"
+        android:insetTop="0dp"
+        android:insetRight="0dp"
+        android:insetBottom="0dp"
+        android:minWidth="0dp"
+        android:padding="0dp"
+        app:backgroundTint="@color/nav_black"
+        app:cornerRadius="26dp"
+        app:elevation="8dp"
+        app:icon="@drawable/ic_tune"
+        app:iconGravity="textStart"
+        app:iconPadding="0dp"
+        app:iconSize="22dp"
+        app:iconTint="@color/nav_white"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/mapModeButton" />
 
     <com.mapbox.navigation.ui.components.voice.view.MapboxSoundButton
         android:id="@+id/soundButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="10dp"
         android:layout_marginEnd="16dp"
         android:visibility="gone"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/mapModeButton" />
+        app:layout_constraintTop_toBottomOf="@id/customizeButton" />
 
     <com.mapbox.navigation.ui.components.maps.camera.view.MapboxRouteOverviewButton
         android:id="@+id/routeOverview"
