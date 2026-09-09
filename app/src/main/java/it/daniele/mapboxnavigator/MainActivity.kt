@@ -35,7 +35,7 @@ import com.mapbox.maps.Style
 import com.mapbox.maps.extension.style.sources.addSource
 import com.mapbox.maps.extension.style.sources.generated.rasterDemSource
 import com.mapbox.maps.extension.style.terrain.generated.terrain
-import com.mapbox.maps.extension.style.terrain.setStyleTerrain
+import com.mapbox.maps.extension.style.terrain.setTerrain
 import com.mapbox.maps.plugin.LocationPuck2D
 import com.mapbox.maps.plugin.animation.camera
 import com.mapbox.maps.plugin.annotation.annotations
@@ -548,7 +548,7 @@ class MainActivity : AppCompatActivity() {
                 tileSize(514)
             }
         )
-        style.setStyleTerrain(
+        style.setTerrain(
             terrain(TERRAIN_SOURCE_ID) {
                 exaggeration(TERRAIN_EXAGGERATION)
             }
